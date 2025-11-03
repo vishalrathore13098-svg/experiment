@@ -1,0 +1,54 @@
+const express = require('express');
+const jwt = require('jsonwebtoken');
+const app = express();
+app.use(express.json());
+
+const secretKey = 'securebankkey';
+let balance = 100;
+
+function verifyToken(req, res, next) {
+  const header = req.headers['authorization'];
+  if (header && header.startsWith('Bearer ')) {
+    const token = header.split(' ')[1];
+    try {
+      jwt.verify(token, secretKey);
+      next();
+    } catch {
+      res.status(403).json({ error: 'Invalid token' });
+    }
+  } else {
+    res.status(403).json({ error: 'Token missing or malformed' });
+  }
+}
+
+app.post('/login', (req, res) => {
+  const { username, password } = req.body;
+  if (username === 'admin' && password === 'admin') {
+    const token = jwt.sign({ user: username }, secretKey);
+    res.json({ message: 'Login successful', token });
+  } else {
+    res.status(401).json({ error: 'Invalid credentials' });
+  }
+});
+
+app.get('/balance', verifyToken, (req, res) => {
+  res.json({ message: `Balance: $${balance}` });
+});
+
+app.post('/deposit', verifyToken, (req, res) => {
+  const { amount } = req.body;
+  balance += amount;
+  res.json({ message: `Deposit successful. Balance: $${balance}` });
+});
+
+app.post('/withdraw', verifyToken, (req, res) => {
+  const { amount } = req.body;
+  if (amount <= balance) {
+    balance -= amount;
+    res.json({ message: `Withdrawal successful. Balance: $${balance}` });
+  } else {
+    res.status(400).json({ error: 'Insufficient funds' });
+  }
+});
+
+app.listen(3000);
